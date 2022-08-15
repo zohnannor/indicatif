@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::convert::identity;
 use std::fmt::{self, Write};
 use std::mem;
 use std::time::Instant;
@@ -147,6 +148,24 @@ impl ProgressStyle {
         self
     }
 
+    /// Provide a function for `pos` calculation.
+    ///
+    /// The progressbar with a `{pos}` template will show numbers
+    /// returned from provided function.
+    pub fn with_pos(mut self, pos: fn(u64) -> u64) -> Self {
+        self.template.pos_calc = pos;
+        self
+    }
+
+    /// Provide a function for `len` calculation.
+    ///
+    /// The progressbar with a `{len}` template will show numbers
+    /// returned from provided function.
+    pub fn with_len(mut self, len: fn(u64) -> u64) -> Self {
+        self.template.len_calc = len;
+        self
+    }
+
     /// Sets the template string for the progress bar
     ///
     /// Review the [list of template keys](./index.html#templates) for more information.
@@ -267,11 +286,15 @@ impl ProgressStyle {
                             }
                             "msg" => buf.push_str(state.message.expanded()),
                             "prefix" => buf.push_str(state.prefix.expanded()),
-                            "pos" => buf.write_fmt(format_args!("{}", pos)).unwrap(),
+                            "pos" => buf
+                                .write_fmt(format_args!("{}", (self.template.pos_calc)(pos)))
+                                .unwrap(),
                             "human_pos" => {
                                 buf.write_fmt(format_args!("{}", HumanCount(pos))).unwrap()
                             }
-                            "len" => buf.write_fmt(format_args!("{}", len)).unwrap(),
+                            "len" => buf
+                                .write_fmt(format_args!("{}", (self.template.len_calc)(len)))
+                                .unwrap(),
                             "human_len" => {
                                 buf.write_fmt(format_args!("{}", HumanCount(len))).unwrap()
                             }
@@ -430,6 +453,8 @@ impl<'a> WideElement<'a> {
 #[derive(Clone, Debug)]
 struct Template {
     parts: Vec<TemplatePart>,
+    len_calc: fn(u64) -> u64,
+    pos_calc: fn(u64) -> u64,
 }
 
 impl Template {
@@ -561,7 +586,11 @@ impl Template {
             )));
         }
 
-        Ok(Self { parts })
+        Ok(Self {
+            parts,
+            len_calc: identity,
+            pos_calc: identity,
+        })
     }
 
     fn from_str(s: &str) -> Result<Self, TemplateError> {

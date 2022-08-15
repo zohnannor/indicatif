@@ -330,4 +330,19 @@ mod test {
             v.iter().progress_with_style(style)
         });
     }
+
+    #[test]
+    fn custom_len_pos_calculation() {
+        let it = (0..100).step_by(10);
+
+        let style = ProgressStyle::default_bar()
+            .template("{wide_bar:.red} {percent}/100%")
+            .unwrap()
+            .with_len(|len| len * 10)
+            .with_pos(|pos| pos * 10);
+        assert_eq!(
+            it.progress_with_style(style).collect::<Vec<_>>(),
+            vec![0, 10, 20, 30, 40, 50, 60, 70, 80, 90]
+        );
+    }
 }
